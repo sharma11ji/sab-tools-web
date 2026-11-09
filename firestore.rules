@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // APIs list: sab padh sakte hain, likhna sirf Firebase Console se (admin)
+    match /apis/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // API requests: sirf logged-in user apni request bana sakta hai
+    match /apiRequests/{id} {
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+  }
+}

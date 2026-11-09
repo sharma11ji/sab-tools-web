@@ -1,0 +1,52 @@
+@import url("https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Permanent+Marker&display=swap");
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #fff; color: #000; font-family: system-ui, sans-serif; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: 0; }
+
+.logo { font-family: "Rubik Dirt", "Permanent Marker", cursive; font-size: 28px; letter-spacing: 1px; }
+
+/* Header */
+.header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; position: sticky; top: 0; background: #fff; z-index: 20; }
+.icon-btn { background: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; }
+.sidebar-icon { width: 26px; height: 30px; border: 3px solid #000; border-radius: 3px; position: relative; }
+.sidebar-icon::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 3px; background: #000; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; background: #000; border-radius: 999px; padding: 0 14px; box-shadow: 0 10px 18px rgba(0,0,0,.35); }
+.search input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; height: 38px; font-size: 15px; min-width: 0; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.user-icon { width: 38px; height: 38px; }
+
+/* Sidebar */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; }
+.sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 300px; max-width: 85vw; background: #fff; z-index: 40; padding: 20px; transform: translateX(-100%); transition: transform .25s ease; overflow-y: auto; }
+.sidebar.open { transform: translateX(0); }
+.sidebar .title { text-align: center; margin-bottom: 24px; }
+.sidebar .title h2 { font-size: 22px; font-weight: 700; }
+.option { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.option .dot { width: 50px; height: 50px; border-radius: 50%; background: #000; flex: none; }
+.option .pill { flex: 1; background: #000; color: #fff; border-radius: 999px; padding: 14px 18px; text-align: center; font-family: "Permanent Marker", cursive; text-transform: uppercase; font-size: 16px; }
+
+/* Grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 22px 16px; padding: 24px 16px 60px; max-width: 1100px; margin: 0 auto; }
+.card { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.card img { width: 110px; height: 110px; object-fit: contain; }
+.card span { font-size: 14px; font-weight: 600; }
+.card-desc { font-size: 12px; color: #555; }
+
+/* Skeleton */
+.skeleton { background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 37%, #e8e8e8 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 12px; }
+@keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+.sk-img { width: 110px; height: 110px; }
+.sk-line { width: 80px; height: 14px; }
+
+/* Pages */
+.page { max-width: 480px; margin: 0 auto; padding: 24px 16px 60px; }
+.page h1 { margin-bottom: 18px; }
+.btn { background: #000; color: #fff; padding: 14px 22px; border-radius: 999px; font-size: 16px; font-weight: 600; }
+.btn.ghost { background: #fff; color: #000; border: 2px solid #000; }
+.profile-box { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.profile-box .avatar { width: 96px; height: 96px; }
+.field { display: block; width: 100%; border: 2px solid #000; border-radius: 12px; padding: 12px; font-size: 15px; margin-bottom: 12px; font-family: inherit; }
+.msg { margin-top: 12px; font-size: 14px; }
+.empty { text-align: center; padding: 60px 16px; color: #555; }
