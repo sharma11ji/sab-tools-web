@@ -6,5 +6,6 @@ export const BUILTIN_TOOLS = [
     name: "QR Code Generator",
     description: "Text ya link se QR code banao",
     url: "/tools/qr-code",
+    icon: "/icons/qr-code.svg",
   },
 ];

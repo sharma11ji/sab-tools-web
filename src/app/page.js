@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 import { BUILTIN_TOOLS } from "@/lib/builtinTools";
 import { useShell } from "@/components/Shell";
 import SkeletonGrid from "@/components/SkeletonGrid";
-import ApiIcon from "@/components/ApiIcon";
+import ToolIcon from "@/components/ToolIcon";
 
 function Card({ a }) {
   const inner = (
@@ -15,7 +15,7 @@ function Card({ a }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={a.icon} alt={a.name} />
       ) : (
-        <ApiIcon />
+        <ToolIcon name={a.name} />
       )}
       <span>{a.name}</span>
       {a.description && <small className="card-desc">{a.description}</small>}
