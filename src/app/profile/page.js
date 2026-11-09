@@ -1,8 +1,20 @@
 "use client";
+import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function Profile() {
   const { user, loading, login, logout } = useAuth();
+  const [error, setError] = useState("");
+
+  async function handleLogin() {
+    setError("");
+    try {
+      await login();
+    } catch (e) {
+      console.error(e);
+      setError(`${e.code || "error"}: ${e.message || ""}`);
+    }
+  }
 
   if (loading) {
     return (
@@ -20,9 +32,10 @@ export default function Profile() {
           <circle cx="12" cy="7" r="5" />
           <path d="M2 22c0-6 4.5-9 10-9s10 3 10 9z" />
         </svg>
-        <button className="btn" onClick={() => login().catch(console.error)}>
+        <button className="btn" onClick={handleLogin}>
           Sign in with Google
         </button>
+        {error && <p className="msg" style={{ color: "#c00", wordBreak: "break-word" }}>{error}</p>}
       </div>
     );
   }
