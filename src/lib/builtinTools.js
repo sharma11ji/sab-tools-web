@@ -8,4 +8,11 @@ export const BUILTIN_TOOLS = [
     url: "/tools/qr-code",
     icon: "/icons/qr-code.svg",
   },
+  {
+    id: "builtin-chat",
+    name: "SAB Chat",
+    description: "Public room, 1-to-1 aur group chat",
+    url: "/chat",
+    icon: "/icons/chat.svg",
+  },
 ];

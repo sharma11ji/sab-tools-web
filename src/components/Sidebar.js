@@ -8,7 +8,7 @@ const OPTIONS = [
   { label: "All APIs", href: "/" },
   { label: "Request API", href: "/request" },
   { label: "Profile", href: "/profile" },
-  { label: "Option", href: "/" },
+  { label: "Chat", href: "/chat" },
   { label: "Option", href: "/" },
 ];
 
