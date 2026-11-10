@@ -1,16 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // APIs list: sab padh sakte hain, likhna sirf Firebase Console se (admin)
+
+    // Sirf admin. Email badalni ho to src/lib/admin.js mein bhi badlo.
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.token.email == "amrjeetgaming2@gmail.com"
+          && request.auth.token.email_verified == true;
+    }
+
+    // Tools: sab padh sakte hain, likh/badal/hata sirf admin sakta hai
     match /apis/{id} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
-    // API requests: sirf logged-in user apni request bana sakta hai
+
+    // API requests: logged-in user apni request bana sakta hai.
+    // Padhna, badalna aur hatana sirf admin.
     match /apiRequests/{id} {
       allow create: if request.auth != null
                     && request.resource.data.uid == request.auth.uid;
-      allow read, update, delete: if false;
+      allow read, update, delete: if isAdmin();
     }
   }
 }

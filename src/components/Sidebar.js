@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { useAuth } from "@/lib/AuthContext";
+import { isAdmin } from "@/lib/admin";
 
 // Yahan apne asli options daal dena
 const OPTIONS = [
@@ -11,6 +13,10 @@ const OPTIONS = [
 ];
 
 export default function Sidebar({ open, onClose }) {
+  const { user } = useAuth();
+  // Admin link sirf admin ko dikhta hai
+  const items = isAdmin(user) ? [...OPTIONS, { label: "Admin", href: "/admin" }] : OPTIONS;
+
   return (
     <>
       {open && <div className="overlay" onClick={onClose} />}
@@ -26,7 +32,7 @@ export default function Sidebar({ open, onClose }) {
         </div>
 
         <nav>
-          {OPTIONS.map((o, i) => (
+          {items.map((o, i) => (
             <Link key={i} href={o.href} className="option" onClick={onClose}>
               {o.label}
             </Link>
