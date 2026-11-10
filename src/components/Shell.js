@@ -12,7 +12,12 @@ export default function Shell({ children }) {
 
   return (
     <ShellContext.Provider value={{ query }}>
-      <Header onMenu={() => setOpen(true)} query={query} setQuery={setQuery} />
+      <Header
+        onMenu={() => setOpen(true)}
+        onSearchOpen={() => setOpen(false)}
+        query={query}
+        setQuery={setQuery}
+      />
       <Sidebar open={open} onClose={() => setOpen(false)} />
       {children}
     </ShellContext.Provider>
