@@ -34,7 +34,7 @@ export default function Header({ onMenu, onSearchOpen, query, setQuery }) {
 
       <div className="header-center">
         <Link href="/" className={`logo header-logo ${open ? "hidden" : ""}`}>
-          SAB TOOLS
+          SAB BOOK
         </Link>
 
         <div className={`search ${open ? "open" : ""}`}>

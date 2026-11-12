@@ -23,7 +23,7 @@ export default function Sidebar({ open, onClose }) {
       <aside className={`sidebar ${open ? "open" : ""}`} aria-hidden={!open}>
         <div className="sidebar-head">
           <div className="title">
-            <div className="logo">SAB TOOLS</div>
+            <div className="logo">SAB BOOK</div>
             <h2>Options</h2>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close menu">

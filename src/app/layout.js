@@ -3,8 +3,8 @@ import { AuthProvider } from "@/lib/AuthContext";
 import Shell from "@/components/Shell";
 
 export const metadata = {
-  title: "SAB Tools",
-  description: "Tools aur APIs ki listing",
+  title: "SAB Book",
+  description: "SAB Book",
 };
 
 export const viewport = { width: "device-width", initialScale: 1 };
