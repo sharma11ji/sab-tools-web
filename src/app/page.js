@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { BUILTIN_TOOLS } from "@/lib/builtinTools";
 import { useShell } from "@/components/Shell";
 import SkeletonGrid from "@/components/SkeletonGrid";
 import ToolIcon from "@/components/ToolIcon";
@@ -54,7 +53,7 @@ export default function Home() {
   if (apis === null) return <SkeletonGrid />;
 
   const q = search.trim().toLowerCase();
-  const all = [...BUILTIN_TOOLS, ...apis];
+  const all = apis;
   const list = q ? all.filter((a) => (a.name || "").toLowerCase().includes(q)) : all;
 
   if (!list.length) {
