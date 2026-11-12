@@ -36,7 +36,7 @@ export default function RequestApi() {
   if (!user) {
     return (
       <div className="page">
-        <h1>Request an API</h1>
+        <h1>Request a Book</h1>
         <p style={{ marginBottom: 16 }}>Request bhejne ke liye pehle sign in karo.</p>
         <button className="btn" onClick={() => login().catch(console.error)}>Sign in with Google</button>
       </div>
@@ -45,9 +45,9 @@ export default function RequestApi() {
 
   return (
     <form className="page" onSubmit={submit}>
-      <h1>Request an API</h1>
-      <input className="field" required placeholder="API / Tool ka naam" value={name} onChange={(e) => setName(e.target.value)} />
-      <textarea className="field" rows={5} placeholder="Kya chahiye? (details)" value={details} onChange={(e) => setDetails(e.target.value)} />
+      <h1>Request a Book</h1>
+      <input className="field" required placeholder="Book ka naam" value={name} onChange={(e) => setName(e.target.value)} />
+      <textarea className="field" rows={5} placeholder="Author ya aur details (optional)" value={details} onChange={(e) => setDetails(e.target.value)} />
       <button className="btn" disabled={busy}>{busy ? "Bhej raha hoon..." : "Submit"}</button>
       {msg && <p className="msg">{msg}</p>}
     </form>

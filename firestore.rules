@@ -13,98 +13,41 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Tools: sab padh sakte hain, likh/badal/hata sirf admin sakta hai
-    match /apis/{id} {
+    // Books: sab padh sakte hain, likh/badal/hata sirf admin sakta hai
+    match /books/{bookId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      // Reviews: document ka id = review likhne wale ka uid, isliye ek user ka ek hi review.
+      match /reviews/{uid} {
+        allow read: if true;
+
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(["uid", "name", "photoURL", "rating", "text", "createdAt"])
+          && request.resource.data.uid == uid
+          && request.resource.data.rating is int
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 5
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 60
+          && request.resource.data.photoURL is string
+          && request.resource.data.createdAt == request.time;
+
+        // Apna review khud hata sakte ho; admin kisi ka bhi hata sakta hai
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      }
     }
 
-    // API requests: logged-in user apni request bana sakta hai.
+    // Book requests: logged-in user apni request bana sakta hai.
     // Padhna, badalna aur hatana sirf admin.
     match /apiRequests/{id} {
       allow create: if request.auth != null
                     && request.resource.data.uid == request.auth.uid;
       allow read, update, delete: if isAdmin();
-    }
-
-    // ---------- SAB Chat ----------
-
-    // Chat mein dikhne wali profile (naam + photo). Email yahan nahi rakhte.
-    // Logged-in log dusron ki profile dekh sakte hain (chat shuru karne ke liye).
-    match /users/{uid} {
-      allow read: if signedIn();
-      allow create, update: if signedIn()
-                            && request.auth.uid == uid
-                            && request.resource.data.uid == uid
-                            && request.resource.data.name is string
-                            && request.resource.data.name.size() > 0
-                            && request.resource.data.name.size() <= 60
-                            && request.resource.data.photoURL is string;
-      allow delete: if isAdmin();
-    }
-
-    // Chats: "public" room ka document nahi hota, wo sab logged-in logon ke liye khula hai.
-    // dm aur group chat sirf members dekh sakte hain.
-    match /chats/{chatId} {
-      function isMember() {
-        return signedIn() && request.auth.uid in resource.data.members;
-      }
-
-      allow read: if isMember();
-
-      allow create: if signedIn()
-        && chatId != "public"
-        && request.resource.data.keys().hasOnly(["type", "members", "name", "createdBy", "createdAt"])
-        && request.resource.data.members is list
-        && request.auth.uid in request.resource.data.members
-        && request.resource.data.members.size() >= 2
-        && request.resource.data.members.size() <= 30
-        && (
-          // 1-to-1: id = dono uid sort karke "_" se jude hue
-          (request.resource.data.type == "dm"
-            && request.resource.data.members.size() == 2
-            && request.resource.data.members[0] < request.resource.data.members[1]
-            && chatId == request.resource.data.members[0] + "_" + request.resource.data.members[1])
-          ||
-          // group: auto id, naam zaroori, banane wala hi createdBy
-          (request.resource.data.type == "group"
-            && !chatId.matches('.*_.*')
-            && request.resource.data.name is string
-            && request.resource.data.name.size() > 0
-            && request.resource.data.name.size() <= 50
-            && request.resource.data.createdBy == request.auth.uid)
-        );
-
-      // Members aur type badal nahi sakte (dm dobara "set merge" karne par ye zaroori hai)
-      allow update: if isMember()
-        && request.resource.data.members == resource.data.members
-        && request.resource.data.type == resource.data.type;
-
-      allow delete: if isAdmin();
-
-      match /messages/{msgId} {
-        function canAccess() {
-          return signedIn()
-            && (chatId == "public"
-                || request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members);
-        }
-
-        allow read: if canAccess();
-
-        allow create: if canAccess()
-          && request.resource.data.keys().hasOnly(["text", "uid", "name", "photoURL", "createdAt"])
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 2000
-          && request.resource.data.name is string
-          && request.resource.data.name.size() <= 60
-          && request.resource.data.photoURL is string
-          && request.resource.data.createdAt == request.time;
-
-        // Apna message khud hata sakte ho; admin kisi ka bhi hata sakta hai
-        allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-      }
     }
   }
 }

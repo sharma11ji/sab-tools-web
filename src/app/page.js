@@ -1,73 +1,85 @@
 "use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { groupByCategory, matchesSearch } from "@/lib/books";
 import { useShell } from "@/components/Shell";
-import SkeletonGrid from "@/components/SkeletonGrid";
-import ToolIcon from "@/components/ToolIcon";
+import BookCard from "@/components/BookCard";
+import BookRow from "@/components/BookRow";
+import { ChevronIcon } from "@/components/BookIcons";
 
-function Card({ a }) {
-  const inner = (
-    <>
-      {a.icon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={a.icon} alt={a.name} />
-      ) : (
-        <ToolIcon name={a.name} />
-      )}
-      <span>{a.name}</span>
-      {a.description && <small className="card-desc">{a.description}</small>}
-    </>
-  );
+const STEP = 2; // shuru mein 2 category, neeche ka chevron 2-2 aur kholta hai
 
-  // Site ke andar ke tools usi tab mein khulte hain, bahar ke links naye tab mein.
-  if (a.url && a.url.startsWith("/")) {
-    return <Link className="card" href={a.url}>{inner}</Link>;
-  }
+function SkeletonShelves() {
   return (
-    <a className="card" href={a.url || "#"} target="_blank" rel="noreferrer">
-      {inner}
-    </a>
+    <div className="shelves" aria-busy="true" aria-label="Loading">
+      {[0, 1].map((i) => (
+        <div className="shelf" key={i}>
+          <div className="skeleton sk-title" />
+          <div className="shelf-row">
+            {[0, 1, 2].map((j) => (
+              <div className="skeleton sk-book" key={j} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 export default function Home() {
-  const [apis, setApis] = useState(null); // null = loading
+  const [books, setBooks] = useState(null); // null = loading
   const [error, setError] = useState("");
+  const [shown, setShown] = useState(STEP);
   const { query: search } = useShell();
 
   useEffect(() => {
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, "apis"), orderBy("createdAt", "desc")));
-        setApis(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const snap = await getDocs(query(collection(db, "books"), orderBy("createdAt", "desc")));
+        setBooks(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {
         console.error(e);
-        setError("APIs load nahi ho paaye. Firestore rules check karo.");
-        setApis([]);
+        setError("Books load nahi ho paayi. Firestore rules check karo.");
+        setBooks([]);
       }
     })();
   }, []);
 
-  if (apis === null) return <SkeletonGrid />;
-
   const q = search.trim().toLowerCase();
-  const all = apis;
-  const list = q ? all.filter((a) => (a.name || "").toLowerCase().includes(q)) : all;
+  const groups = useMemo(() => groupByCategory(books || []), [books]);
 
-  if (!list.length) {
-    return <p className="empty">Koi result nahi mila.</p>;
+  if (books === null) return <SkeletonShelves />;
+
+  if (q) {
+    const found = books.filter((b) => matchesSearch(b, q));
+    if (!found.length) return <p className="empty">Koi book nahi mili.</p>;
+    return (
+      <main className="shelves">
+        <div className="book-grid">
+          {found.map((b) => (
+            <BookCard key={b.id} book={b} />
+          ))}
+        </div>
+      </main>
+    );
+  }
+
+  if (!books.length) {
+    return <p className="empty">{error || "Abhi koi book nahi hai. Admin panel se pehli book jodo."}</p>;
   }
 
   return (
-    <>
-      {error && <p className="empty" style={{ paddingBottom: 0 }}>{error}</p>}
-      <main className="grid">
-        {list.map((a) => (
-          <Card key={a.id} a={a} />
-        ))}
-      </main>
-    </>
+    <main className="shelves">
+      {error && <p className="empty" style={{ padding: "0 0 12px" }}>{error}</p>}
+      {groups.slice(0, shown).map((g) => (
+        <BookRow key={g.name} title={g.name} books={g.books} />
+      ))}
+      {shown < groups.length && (
+        <button className="more-btn" onClick={() => setShown((n) => n + STEP)} aria-label="Aur categories dikhao">
+          <ChevronIcon dir="down" />
+        </button>
+      )}
+    </main>
   );
 }

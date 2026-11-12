@@ -5,8 +5,8 @@ import { isAdmin } from "@/lib/admin";
 
 // Yahan apne asli options daal dena
 const OPTIONS = [
-  { label: "All APIs", href: "/" },
-  { label: "Request API", href: "/request" },
+  { label: "All Books", href: "/" },
+  { label: "Request Book", href: "/request" },
   { label: "Profile", href: "/profile" },
   { label: "Option", href: "/" },
 ];
