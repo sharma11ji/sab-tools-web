@@ -28,6 +28,7 @@ export default function BookPage() {
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [opening, setOpening] = useState(false);
 
   const loadReviews = useCallback(async () => {
     try {
@@ -104,6 +105,47 @@ export default function BookPage() {
     }
   }
 
+  // Upload ki hui file: tukde jodkar kholo. PDF/photo/text browser mein khulte hain, baaki download hote hain.
+  async function openFile() {
+    setOpening(true);
+    setMsg("");
+    const w = window.open("", "_blank"); // click ke turant baad kholna, warna popup block ho jata hai
+    try {
+      const [metaSnap, chunkSnap] = await Promise.all([
+        getDoc(doc(db, "bookFiles", book.readFile)),
+        getDocs(query(collection(db, "bookFiles", book.readFile, "chunks"), orderBy("n"))),
+      ]);
+      const meta = metaSnap.data();
+      if (!meta || chunkSnap.size !== meta.chunks) throw new Error("File poori nahi mili.");
+      const parts = chunkSnap.docs.map((d) => {
+        const bin = atob(d.data().data);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+      });
+      const type = meta.type || "application/octet-stream";
+      const url = URL.createObjectURL(new Blob(parts, { type }));
+      if (/^(application\/pdf|image\/|text\/plain)/.test(type)) {
+        if (w) w.location.href = url;
+        else window.location.href = url;
+      } else {
+        if (w) w.close();
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = meta.name || "book";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+    } catch (err) {
+      console.error(err);
+      if (w) w.close();
+      setMsg(`File khul nahi paayi: ${err.code || err.message}`);
+    }
+    setOpening(false);
+  }
+
   if (book === null) {
     return (
       <div className="page book-page">
@@ -162,11 +204,18 @@ export default function BookPage() {
         </div>
       </div>
 
-      {book.readUrl && (
-        <a className="read-btn" href={book.readUrl} target="_blank" rel="noreferrer">
+      {book.readFile ? (
+        <button className="read-btn" onClick={openFile} disabled={opening}>
           <PlayIcon />
-          <span>READ NOW</span>
-        </a>
+          <span>{opening ? "KHUL RAHI HAI..." : "READ NOW"}</span>
+        </button>
+      ) : (
+        book.readUrl && (
+          <a className="read-btn" href={book.readUrl} target="_blank" rel="noreferrer">
+            <PlayIcon />
+            <span>READ NOW</span>
+          </a>
+        )
       )}
 
       <h2 className="sec-title">About this ebook</h2>

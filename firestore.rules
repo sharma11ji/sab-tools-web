@@ -42,6 +42,17 @@ service cloud.firestore {
       }
     }
 
+    // Book ki upload ki hui files (tukdon mein): sab padh sakte hain, likhna/hatana sirf admin.
+    match /bookFiles/{fid} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /chunks/{cid} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
     // Book requests: logged-in user apni request bana sakta hai.
     // Padhna, badalna aur hatana sirf admin.
     match /apiRequests/{id} {

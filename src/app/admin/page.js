@@ -9,10 +9,10 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
 import { ADMIN_EMAIL, isAdmin } from "@/lib/admin";
 import { splitCategories } from "@/lib/books";
@@ -24,12 +24,34 @@ const EMPTY = {
   pages: "",
   categories: "",
   readUrl: "",
+  readFile: "",
+  readFileName: "",
   description: "",
   authorBio: "",
 };
 
 const isHttp = (s) => /^https?:\/\//i.test(s);
 const isPhoto = (s) => s.startsWith("data:image/");
+
+// Book ki file Firestore mein tukdon (chunks) mein jaati hai: bookFiles/{id} + bookFiles/{id}/chunks/0000...
+// CHUNK 4 ka guna hona zaroori hai, taaki har tukda apne aap mein sahi base64 rahe.
+const CHUNK = 700000; // akshar (~525 KB), Firestore ke 1 MB document limit se neeche
+const MAX_MB = 5;
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1] || "");
+    r.onerror = () => reject(new Error("File padh nahi paayi."));
+    r.readAsDataURL(file);
+  });
+}
+
+async function deleteFileDocs(fid) {
+  const snap = await getDocs(collection(db, "bookFiles", fid, "chunks"));
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  await deleteDoc(doc(db, "bookFiles", fid));
+}
 
 // Phone se chuni photo ko chhota (max 520px) karke JPEG text bana deta hai,
 // taaki alag storage ke bina seedha book ke saath save ho jaye.
@@ -110,34 +132,44 @@ export default function AdminPage() {
     }
   }
 
-  // Book ki file (kisi bhi format ki) Firebase Storage par chadhao. Link apne aap "Padhne ka link" mein aa jata hai.
-  function pickBookFile(e) {
+  // Book ki file (kisi bhi format ki, 5 MB tak) tukdon mein Firestore par chadhao.
+  async function pickBookFile(e) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      setMsg("File 50 MB se badi hai. Chhoti file chuno.");
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setMsg(`File ${MAX_MB} MB se badi hai. Badi file ke liye Google Drive ka link use karo.`);
       return;
     }
     setMsg("");
-    const safe = file.name.replace(/[^\w.\-]+/g, "_");
-    const task = uploadBytesResumable(ref(storage, `books-files/${Date.now()}-${safe}`), file);
-    setUpload({ name: file.name, pct: 0 });
-    task.on(
-      "state_changed",
-      (s) => setUpload({ name: file.name, pct: Math.round((s.bytesTransferred / s.totalBytes) * 100) }),
-      (err) => {
-        console.error(err);
-        setUpload(null);
-        setMsg(`File upload nahi hui: ${err.code || err.message}. Storage chalu kiya hai aur storage rules publish kiye hain?`);
-      },
-      async () => {
-        const url = await getDownloadURL(task.snapshot.ref);
-        setForm((f) => ({ ...f, readUrl: url }));
-        setUpload(null);
-        setMsg(`"${file.name}" upload ho gayi. Ab book Add/Update karo.`);
+    const fid = doc(collection(db, "bookFiles")).id;
+    try {
+      setUpload({ name: file.name, pct: 0 });
+      const b64 = await fileToBase64(file);
+      const chunks = Math.max(1, Math.ceil(b64.length / CHUNK));
+      await setDoc(doc(db, "bookFiles", fid), {
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        size: file.size,
+        chunks,
+        createdAt: serverTimestamp(),
+      });
+      for (let n = 0; n < chunks; n++) {
+        await setDoc(doc(db, "bookFiles", fid, "chunks", String(n).padStart(4, "0")), {
+          n,
+          data: b64.slice(n * CHUNK, (n + 1) * CHUNK),
+        });
+        setUpload({ name: file.name, pct: Math.round(((n + 1) / chunks) * 100) });
       }
-    );
+      setForm((f) => ({ ...f, readFile: fid, readFileName: file.name }));
+      setUpload(null);
+      setMsg(`"${file.name}" upload ho gayi. Ab book Add/Update karo.`);
+    } catch (err) {
+      console.error(err);
+      setUpload(null);
+      await deleteFileDocs(fid).catch(() => {});
+      setMsg(`File upload nahi hui: ${err.code || err.message}. Firestore rules publish kiye hain?`);
+    }
   }
 
   async function save(e) {
@@ -149,6 +181,8 @@ export default function AdminPage() {
       pages: Math.max(0, Math.floor(Number(form.pages) || 0)),
       categories: splitCategories(form.categories),
       readUrl: form.readUrl.trim(),
+      readFile: form.readFile,
+      readFileName: form.readFileName,
       description: form.description.trim(),
       authorBio: form.authorBio.trim(),
     };
@@ -188,6 +222,8 @@ export default function AdminPage() {
       pages: b.pages ? String(b.pages) : "",
       categories: (b.categories || []).join(", "),
       readUrl: b.readUrl || "",
+      readFile: b.readFile || "",
+      readFileName: b.readFileName || "",
       description: b.description || "",
       authorBio: b.authorBio || "",
     });
@@ -206,6 +242,7 @@ export default function AdminPage() {
   async function removeBook(b) {
     if (!window.confirm(`"${b.title}" ko delete karna hai?`)) return;
     try {
+      if (b.readFile) await deleteFileDocs(b.readFile).catch(console.error);
       await deleteDoc(doc(db, "books", b.id));
       if (editId === b.id) cancelEdit();
       await load();
@@ -306,16 +343,27 @@ export default function AdminPage() {
             )}
             <input className="field" inputMode="numeric" placeholder="Kitne pages" value={form.pages} onChange={set("pages")} />
             <input className="field" placeholder="Categories, comma se alag (jaise Story, Love, Motivation)" value={form.categories} onChange={set("categories")} />
-            <input className="field" placeholder="Padhne ka link (https://...), ya neeche se file chuno" value={form.readUrl} onChange={set("readUrl")} />
-            <label className="btn small ghost file-btn">
-              {upload ? `Upload ho rahi hai... ${upload.pct}%` : "Ya book ki file chuno (kisi bhi format mein)"}
-              <input type="file" hidden disabled={!!upload} onChange={pickBookFile} />
-            </label>
-            {upload && <p className="muted-note" style={{ marginBottom: 12 }}>{upload.name}</p>}
+            <input className="field" placeholder="Padhne ka link (Google Drive ya koi https:// link), ya neeche se chhoti file chuno" value={form.readUrl} onChange={set("readUrl")} />
+            {form.readFile ? (
+              <div className="cover-pick">
+                <span className="muted-note">{form.readFileName || "File"} jodi gayi hai (READ NOW isi ko kholega)</span>
+                <button type="button" className="btn small ghost" onClick={() => setForm((f) => ({ ...f, readFile: "", readFileName: "" }))}>
+                  File hatao
+                </button>
+              </div>
+            ) : (
+              <>
+                <label className="btn small ghost file-btn">
+                  {upload ? `Upload ho rahi hai... ${upload.pct}%` : `Ya book ki file chuno (${MAX_MB} MB tak, kisi bhi format mein)`}
+                  <input type="file" hidden disabled={!!upload} onChange={pickBookFile} />
+                </label>
+                {upload && <p className="muted-note" style={{ marginBottom: 12 }}>{upload.name}</p>}
+              </>
+            )}
             <textarea className="field" rows={5} placeholder="About this ebook (description)" value={form.description} onChange={set("description")} />
             <textarea className="field" rows={3} placeholder="Author ke baare mein" value={form.authorBio} onChange={set("authorBio")} />
             <div className="item-actions">
-              <button className="btn" disabled={busy}>{busy ? "Ruko..." : editId ? "Update karo" : "Add karo"}</button>
+              <button className="btn" disabled={busy || !!upload}>{busy ? "Ruko..." : editId ? "Update karo" : "Add karo"}</button>
               {editId && (
                 <button type="button" className="btn ghost" onClick={cancelEdit}>Cancel</button>
               )}
