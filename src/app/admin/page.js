@@ -28,6 +28,30 @@ const EMPTY = {
 };
 
 const isHttp = (s) => /^https?:\/\//i.test(s);
+const isPhoto = (s) => s.startsWith("data:image/");
+
+// Phone se chuni photo ko chhota (max 520px) karke JPEG text bana deta hai,
+// taaki alag storage ke bina seedha book ke saath save ho jaye.
+function photoToCover(file, maxSide = 520) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Ye photo khul nahi paayi."));
+    };
+    img.src = url;
+  });
+}
 
 export default function AdminPage() {
   const { user, loading, login, logout } = useAuth();
@@ -67,6 +91,23 @@ export default function AdminPage() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  async function pickCover(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // wahi photo dobara chunni ho to bhi chale
+    if (!file) return;
+    try {
+      const cover = await photoToCover(file);
+      if (cover.length > 400000) {
+        setMsg("Photo bahut bhari hai, koi doosri chuno.");
+        return;
+      }
+      setForm((f) => ({ ...f, cover }));
+      setMsg("");
+    } catch (err) {
+      setMsg(err.message);
+    }
+  }
+
   async function save(e) {
     e.preventDefault();
     const data = {
@@ -79,7 +120,7 @@ export default function AdminPage() {
       description: form.description.trim(),
       authorBio: form.authorBio.trim(),
     };
-    if (data.cover && !isHttp(data.cover)) {
+    if (data.cover && !isHttp(data.cover) && !isPhoto(data.cover)) {
       setMsg("Cover ka link http:// ya https:// se shuru hona chahiye.");
       return;
     }
@@ -214,7 +255,23 @@ export default function AdminPage() {
             <h2>{editId ? "Book badlo" : "Nayi book jodo"}</h2>
             <input className="field" required placeholder="Book ka naam" value={form.title} onChange={set("title")} />
             <input className="field" placeholder="Author ka naam" value={form.author} onChange={set("author")} />
-            <input className="field" placeholder="Cover photo ka link (https://...)" value={form.cover} onChange={set("cover")} />
+            {isPhoto(form.cover) ? (
+              <div className="cover-pick">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={form.cover} alt="Chuni hui cover photo" />
+                <button type="button" className="btn small ghost" onClick={() => setForm((f) => ({ ...f, cover: "" }))}>
+                  Photo hatao
+                </button>
+              </div>
+            ) : (
+              <>
+                <input className="field" placeholder="Cover photo ka link (https://...)" value={form.cover} onChange={set("cover")} />
+                <label className="btn small ghost file-btn">
+                  Ya phone se photo chuno
+                  <input type="file" accept="image/*" hidden onChange={pickCover} />
+                </label>
+              </>
+            )}
             <input className="field" inputMode="numeric" placeholder="Kitne pages" value={form.pages} onChange={set("pages")} />
             <input className="field" placeholder="Categories, comma se alag (jaise Story, Love, Motivation)" value={form.categories} onChange={set("categories")} />
             <input className="field" placeholder="Padhne ka link (https://... PDF ya page)" value={form.readUrl} onChange={set("readUrl")} />
