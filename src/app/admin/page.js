@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
 import { ADMIN_EMAIL, isAdmin } from "@/lib/admin";
 import { splitCategories } from "@/lib/books";
@@ -62,6 +63,7 @@ export default function AdminPage() {
   const [editId, setEditId] = useState(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [upload, setUpload] = useState(null); // { name, pct } jab file upload ho rahi ho
   const admin = isAdmin(user);
 
   const load = useCallback(async () => {
@@ -106,6 +108,36 @@ export default function AdminPage() {
     } catch (err) {
       setMsg(err.message);
     }
+  }
+
+  // Book ki file (kisi bhi format ki) Firebase Storage par chadhao. Link apne aap "Padhne ka link" mein aa jata hai.
+  function pickBookFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setMsg("File 50 MB se badi hai. Chhoti file chuno.");
+      return;
+    }
+    setMsg("");
+    const safe = file.name.replace(/[^\w.\-]+/g, "_");
+    const task = uploadBytesResumable(ref(storage, `books-files/${Date.now()}-${safe}`), file);
+    setUpload({ name: file.name, pct: 0 });
+    task.on(
+      "state_changed",
+      (s) => setUpload({ name: file.name, pct: Math.round((s.bytesTransferred / s.totalBytes) * 100) }),
+      (err) => {
+        console.error(err);
+        setUpload(null);
+        setMsg(`File upload nahi hui: ${err.code || err.message}. Storage chalu kiya hai aur storage rules publish kiye hain?`);
+      },
+      async () => {
+        const url = await getDownloadURL(task.snapshot.ref);
+        setForm((f) => ({ ...f, readUrl: url }));
+        setUpload(null);
+        setMsg(`"${file.name}" upload ho gayi. Ab book Add/Update karo.`);
+      }
+    );
   }
 
   async function save(e) {
@@ -274,7 +306,12 @@ export default function AdminPage() {
             )}
             <input className="field" inputMode="numeric" placeholder="Kitne pages" value={form.pages} onChange={set("pages")} />
             <input className="field" placeholder="Categories, comma se alag (jaise Story, Love, Motivation)" value={form.categories} onChange={set("categories")} />
-            <input className="field" placeholder="Padhne ka link (https://... PDF ya page)" value={form.readUrl} onChange={set("readUrl")} />
+            <input className="field" placeholder="Padhne ka link (https://...), ya neeche se file chuno" value={form.readUrl} onChange={set("readUrl")} />
+            <label className="btn small ghost file-btn">
+              {upload ? `Upload ho rahi hai... ${upload.pct}%` : "Ya book ki file chuno (kisi bhi format mein)"}
+              <input type="file" hidden disabled={!!upload} onChange={pickBookFile} />
+            </label>
+            {upload && <p className="muted-note" style={{ marginBottom: 12 }}>{upload.name}</p>}
             <textarea className="field" rows={5} placeholder="About this ebook (description)" value={form.description} onChange={set("description")} />
             <textarea className="field" rows={3} placeholder="Author ke baare mein" value={form.authorBio} onChange={set("authorBio")} />
             <div className="item-actions">
